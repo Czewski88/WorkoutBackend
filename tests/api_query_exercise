@@ -1,0 +1,41 @@
+import os
+from resources.ExerciseDetail import ExerciseDetail
+from models.ConnectionPool import ConnectionPool
+
+def test_exercise_detail():
+    os.environ['USER'] = 'your_db_user'
+    os.environ['PASSWORD'] = 'your_db_password'
+    os.environ['HOST'] = 'your_db_host'
+    os.environ['PORT'] = '3306'  # Example port
+
+    def side_effects(query, params):
+        if query == "SELECT * FROM exercises WHERE exercise_id = %s":
+            if params == (1,):
+                return {'rows': [{'exercise_id': 1, 'name': 'Test Exercise', 'description': 'Test Description'}], 'message': ""}
+            elif params == (999,):
+                return {'rows': [], 'message': "No exercise with id found."}
+            else:
+                return {'rows': [], 'message': ""}
+        raise ValueError("Unexpected query or parameters")
+
+    ConnectionPool(testEffects=side_effects)
+
+    resource = ExerciseDetail()
+
+    # Test: Expected exercise returned
+    response = resource.get(1)
+    assert response['rows'][0]['name'] == 'Test Exercise'
+    assert response['rows'][0]['description'] == 'Test Description'
+
+    # Test: Exercise does not exist
+    response = resource.get(999)
+    assert len(response['rows']) == 0
+    assert "No exercise with id found." in response['message']
+
+    # Reset ConnectionPool instances if necessary
+    ConnectionPool._instances = {}
+
+if __name__ == "__main__":
+    test_exercise_detail()
+    print("Test completed successfully.")
+

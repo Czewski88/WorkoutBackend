@@ -1,0 +1,43 @@
+from resources.RoutineDetail import RoutineDetail
+from models.ConnectionPool import ConnectionPool
+
+def test_routine_detail():
+    def side_effects(query, params):
+        if query == "SELECT * FROM routine_details WHERE routine_id = %s":
+            if params == (999,):
+                # routine does not exist
+                return {'rows': [], 'message': "No routine with id found."}
+            elif params == (1,):
+                # routine exists with details
+                return {'rows': [
+                    {'routine_id': 1, 'routine_name': 'Test Routine', 
+                     'description': 'Test Description', 'exercise_name': 'Test Exercise'}
+                ], 'message': ""}
+            elif params == (2,):
+                # routine exists but no exercises
+                return {'rows': [], 'message': "No exercises found for routine"}
+        else:
+            return {'rows': [], 'message': "Unexpected query"}
+
+    # Set the ConnectionPool to use the side_effects for this test
+    ConnectionPool(testEffects=side_effects)
+
+    resource = RoutineDetail()
+
+    # Test: Routine does not exist
+    response, status_code = resource.get(999)
+    assert status_code == 500
+    assert 'No routine with id' in response['message']
+
+    # Test: Routine has no exercises
+    response, status_code = resource.get(2)
+    assert status_code == 500
+    assert 'No exercises found for routine' in response['message']
+
+    # Test: Expected routine returned
+    response, status_code = resource.get(1)
+    assert status_code == 200
+    assert any(r['routine_name'] == 'Test Routine' for r in response)
+    assert any(r['description'] == 'Test Description' for r in response)
+    assert any(r['exercise_name'] == 'Test Exercise' for r in response)
+
